@@ -1,10 +1,9 @@
-import { Stack, StackProps, Duration } from 'aws-cdk-lib';
+import { Stack, StackProps} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { Role, ServicePrincipal, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { RestApi, LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
-import { UserPool, VerificationEmailStyle, AccountRecovery } from 'aws-cdk-lib/aws-cognito';
 
 export class ServerlessAppStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -64,55 +63,5 @@ export class ServerlessAppStack extends Stack {
     item.addMethod('GET', itemsIntegration);
     item.addMethod('DELETE', itemsIntegration);
 
-    // cognito
-    const userPool = new UserPool(this, 'myuserpool', {
-      
-      selfSignUpEnabled: true,
-      userVerification: {
-        emailSubject: 'Verify your email for our awesome app!',
-        emailBody: 'Thanks for signing up to our awesome app! Your verification code is {####}',
-        emailStyle: VerificationEmailStyle.CODE,
-      },
-
-      signInAliases: {
-        email: true,
-      },
-
-      standardAttributes: {
-        nickname: {
-          required: true,
-          mutable: false,
-        },
-        email: {
-          required: true,
-          mutable: false,
-        },
-      },
-
-      passwordPolicy: {
-        minLength: 8,
-        requireLowercase: true,
-        requireUppercase: true,
-        requireDigits: true,
-        requireSymbols: true,
-        tempPasswordValidity: Duration.days(3),
-      },
-
-      accountRecovery: AccountRecovery.EMAIL_ONLY,
-    });
-
-    userPool.addClient('app-client', {
-      accessTokenValidity: Duration.minutes(60),
-      idTokenValidity: Duration.minutes(60),
-      refreshTokenValidity: Duration.days(30),
-      preventUserExistenceErrors: true,
-      enableTokenRevocation: true,
-    })
-
-    userPool.addDomain('app-domain', {
-      cognitoDomain: {
-        domainPrefix: 'appdomaincdktesting'
-      }
-    })
   }
 }
