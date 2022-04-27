@@ -8,7 +8,10 @@ exports.handler = async (event, context) => {
   let body;
   let statusCode = 200;
   const headers = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Headers" : "Content-Type",
+    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Methods": "OPTIONS,PUT,GET,DELETE"
   };
 
   try {
@@ -22,7 +25,7 @@ exports.handler = async (event, context) => {
             }
           })
           .promise();
-        body = `Deleted item ${event.pathParameters.id}`;
+          body = `Deleted item ${event.pathParameters.id}`;
         break;
       case "GET /items/{id}":
         body = await dynamo

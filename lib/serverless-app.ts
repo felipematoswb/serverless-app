@@ -3,7 +3,8 @@ import { Construct } from 'constructs';
 import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { Role, ServicePrincipal, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { RestApi, LambdaIntegration } from 'aws-cdk-lib/aws-apigateway';
+import { RestApi, LambdaIntegration, LogGroupLogDestination, AccessLogFormat, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
+import { LogGroup } from 'aws-cdk-lib/aws-logs';
 
 export class ServerlessAppStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -49,8 +50,18 @@ export class ServerlessAppStack extends Stack {
       role: roleToLambda
     });
 
+    const logGroup = new LogGroup(this, "ApiGatewayAccessLogs");
+
     const api = new RestApi(this, 'tutorial-api', {
-      restApiName: 'tutorial-api'
+      restApiName: 'tutorial-api',
+
+      description: 'tutorial api gateway',
+      deployOptions: {
+        stageName: 'dev',
+        accessLogDestination: new LogGroupLogDestination(logGroup),
+        accessLogFormat: AccessLogFormat.clf(),
+        loggingLevel: MethodLoggingLevel.INFO
+      },
     });
 
     const itemsIntegration = new LambdaIntegration(fn);
