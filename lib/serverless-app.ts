@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { Role, ServicePrincipal, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { RestApi, LambdaIntegration, LogGroupLogDestination, AccessLogFormat, MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
+import { RestApi, LambdaIntegration, LogGroupLogDestination, AccessLogFormat, MethodLoggingLevel, AccessLogField } from 'aws-cdk-lib/aws-apigateway';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
 
 export class ServerlessAppStack extends Stack {
@@ -59,8 +59,23 @@ export class ServerlessAppStack extends Stack {
       deployOptions: {
         stageName: 'dev',
         accessLogDestination: new LogGroupLogDestination(logGroup),
-        accessLogFormat: AccessLogFormat.clf(),
-        loggingLevel: MethodLoggingLevel.INFO
+        accessLogFormat: AccessLogFormat.custom(JSON.stringify({
+                requestId: AccessLogField.contextRequestId(),
+                sourceIp: AccessLogField.contextIdentitySourceIp(),
+                extendedRequestId: AccessLogField.contextExtendedRequestId(),
+                caller: AccessLogField.contextIdentityCaller(),
+                user: AccessLogField.contextIdentityUser(),
+                requestTime: AccessLogField.contextRequestTime(),
+                httpMethod: AccessLogField.contextHttpMethod(),
+                resourcePath: AccessLogField.contextResourcePath(),
+                status: AccessLogField.contextStatus(),
+                protocol: AccessLogField.contextProtocol(),
+                responseLength: AccessLogField.contextResponseLength(),
+                userAgent: AccessLogField.contextIdentityUserAgent(),
+                apiId: AccessLogField.contextApiId()
+             })),
+        loggingLevel: MethodLoggingLevel.INFO,
+        metricsEnabled: true
       },
     });
 
