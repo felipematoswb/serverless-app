@@ -1,6 +1,6 @@
-import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { AccessLogField, AccessLogFormat, AuthorizationType, CognitoUserPoolsAuthorizer, LambdaIntegration, LogGroupLogDestination, MethodLoggingLevel, RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { AccountRecovery, DateTimeAttribute, OAuthScope, UserPool, UserPoolClientIdentityProvider, VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import { AccountRecovery, DateTimeAttribute, OAuthScope, UserPool, UserPoolClient, UserPoolClientIdentityProvider, UserPoolDomain, VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
@@ -55,28 +55,37 @@ export class ServerlessAppStack extends Stack {
       accountRecovery: AccountRecovery.EMAIL_ONLY,
     });
 
+    const urlFrontend = 'http://localhost:3000/'
     // Create App Client
-    poolCognitoApi.addClient('clientAppAuth', {
+    const userPoolClientApi = new UserPoolClient(this, 'userPoolClientApi', {
+      userPool: poolCognitoApi,
       supportedIdentityProviders: [
         UserPoolClientIdentityProvider.COGNITO
       ],
       oAuth: {
         flows: {
-          authorizationCodeGrant: true
+          implicitCodeGrant: true
         },
         scopes: [OAuthScope.OPENID],
-        callbackUrls: ['http://localhost:8080/'],
-        logoutUrls: ['http://localhost:8080/']
+        callbackUrls: [urlFrontend],
+        logoutUrls: [urlFrontend]
       },
       preventUserExistenceErrors: true,
+
     });
 
     // Create Domain to Access
-    // poolCognitoApi.addDomain('appCognitoDomain', {
-    //   cognitoDomain: {
-    //     domainPrefix: 'auth-awesome-product-app'
-    //   }
-    // });
+    const userPoolDomainApi = new UserPoolDomain(this, 'userPoolDomainApi', {
+      userPool: poolCognitoApi,
+      cognitoDomain: {
+        domainPrefix: 'auth-awesome-product-app'
+      }
+    })
+    
+    new CfnOutput(this, 'myUrlToAccessCognitoPool', {
+      value: 'https://' + userPoolDomainApi.domainName + '.auth.us-east-1.amazoncognito.com/login?client_id=' + userPoolClientApi.userPoolClientId + '&response_type=token&scope=openid&redirect_uri=' + urlFrontend,
+      description: 'The url to access Cognito Userpool'
+    });
 
     // Create Role to Lambda Access DB
     const roleLambdaAccessDB = new Role(this, 'roleLambdaAccessDB', {
@@ -108,9 +117,9 @@ export class ServerlessAppStack extends Stack {
 
     // Create Lambda
     const crudLambdaFn = new Function(this, 'crudLambdaFn', {
-      runtime: Runtime.NODEJS_16_X,
+      runtime: Runtime.NODEJS_18_X,
       handler: 'index.handler',
-      code: Code.fromAsset("backend-lambda"),
+      code: Code.fromAsset("lambda"),
       functionName: 'crudLambdaFn',
       role: roleLambdaAccessDB
     });
@@ -157,7 +166,7 @@ export class ServerlessAppStack extends Stack {
         ],
         allowMethods: ['OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
         allowCredentials: true,
-        allowOrigins: ['http://localhost:3000'],
+        allowOrigins: [urlFrontend],
       }
     });
 
@@ -166,10 +175,7 @@ export class ServerlessAppStack extends Stack {
 
     // Create Resource Root
     const blogRootResource = apiBlog.root.addResource('posts');
-    blogRootResource.addMethod('GET', blogLambdaIntegration, {
-      authorizer: authApiAccess,
-      authorizationType: AuthorizationType.COGNITO
-    });
+    blogRootResource.addMethod('GET', blogLambdaIntegration);
     blogRootResource.addMethod('PUT', blogLambdaIntegration, {
       authorizer: authApiAccess,
       authorizationType: AuthorizationType.COGNITO
